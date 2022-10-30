@@ -246,6 +246,13 @@ class DrawWindow extends PApplet {
 
   void draw() {
     this.background(WINDOW_BACKROUNG_COLOR);
+    if (this.curves.hasSelectedCurve()) {
+      this.push();
+      this.fill(0);
+      this.textSize(20);
+      this.text("\"" + this.curves.selectedCurve + "\" selected", 20, 30);
+      this.pop();
+    }
     this.curves.draw(this, color(0));
   }
 
