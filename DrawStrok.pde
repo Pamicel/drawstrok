@@ -270,13 +270,14 @@ class DrawWindow extends PApplet {
 
   void init() {
     memory.loadVariables();
-    String curveToSelect = "headCurve";
+    String curveToSelect = null;
     NamedCurves loadedCurves = memory.loadCurves(
       this.canvasPosition,
       new Vec2D(this.xRatio, this.yRatio)
     );
     if (loadedCurves != null) {
       if (this.curves != null) {
+        // Save the selected curve name so that we can keep it selected.
         if (this.curves.hasSelectedCurve()) {
           curveToSelect = this.curves.selectedCurve;
         }
@@ -289,7 +290,9 @@ class DrawWindow extends PApplet {
         "tailCurve"
       );
     }
-    this.curves.selectCurve(curveToSelect);
+    if (curveToSelect != null) {
+      this.curves.selectCurve(curveToSelect);
+    }
     this.applyResampleToAllCurves();
     this.strok.setCurves(
       this.curves.get("headCurve"),
