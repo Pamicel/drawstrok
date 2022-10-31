@@ -1,14 +1,33 @@
 class Curve {
   boolean selected = false;
-  ArrayList<Vec2D> rawCurve;
-  ArrayList<Vec2D> resampledCurve;
+  ArrayList<Vec2D> rawCurve = new ArrayList<Vec2D>();
+  ArrayList<Vec2D> resampledCurve = null;
 
-  Curve () {
-    this.rawCurve = new ArrayList<Vec2D>();
-    this.resampledCurve = null;
+  Curve () {}
+
+  Curve (JSONArray curveDescription) {
+    this.fillFromJSONArray(curveDescription);
   }
-  Curve (ArrayList<Vec2D> initialCurve) {
-    this.rawCurve = initialCurve;
+
+  Curve (JSONArray curveDescription, Vec2D translation, Vec2D scale) {
+    this.fillFromJSONArray(curveDescription, translation, scale);
+  }
+
+  private boolean isResampled() {
+    return this.resampledCurve != null;
+  }
+
+  private void fillFromJSONArray(JSONArray curveDescription) {
+    this.fillFromJSONArray(curveDescription, new Vec2D(0, 0), new Vec2D(1, 1));
+  }
+
+  private void fillFromJSONArray(JSONArray curveDescription, Vec2D translation, Vec2D scale) {
+    for (int i = 0; i < curveDescription.size(); i++) {
+      JSONObject point = curveDescription.getJSONObject(i);
+      float x = (point.getFloat("x") * scale.x) + translation.x;
+      float y = (point.getFloat("y") * scale.y) + translation.y;
+      this.addPoint(new Vec2D(x, y));
+    }
   }
 
   void select() {
@@ -19,23 +38,29 @@ class Curve {
     this.selected = false;
   }
 
-  private boolean isResampled() {
-    return this.resampledCurve != null;
-  }
-
   boolean isSelected () {
     return this.selected;
   }
 
   JSONArray toJSONArray() {
+    return this.toJSONArray(
+      new Vec2D(0, 0),
+      new Vec2D(1, 1)
+    );
+  }
+
+  JSONArray toJSONArray(
+    Vec2D translation,
+    Vec2D scale
+  ) {
     JSONArray values = new JSONArray();
 
     Vec2D position;
     for (int i = 0; i < this.rawCurve.size(); i++) {
       position = this.rawCurve.get(i);
       JSONObject point = new JSONObject();
-      point.setFloat("x", position.x);
-      point.setFloat("y", position.y);
+      point.setFloat("x", (position.x + translation.x) * scale.x);
+      point.setFloat("y", (position.y + translation.y) * scale.y);
       values.setJSONObject(i, point);
     }
 
@@ -46,9 +71,14 @@ class Curve {
     this.rawCurve.add(point);
   }
 
+  void clear() { this.reset(); }
+
   void reset() {
     this.rawCurve.clear();
-    this.resampledCurve = null;
+    if (this.resampledCurve != null) {
+      this.resampledCurve.clear();
+      this.resampledCurve = null;
+    }
   }
 
   void resample(int resampleNewLen) {

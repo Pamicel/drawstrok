@@ -3,6 +3,24 @@ class NamedCurves {
   Map<String, Curve> curves = new HashMap<String, Curve>();
   String selectedCurve;
 
+  NamedCurves() {}
+
+  NamedCurves(JSONObject descriptionObject) {
+    this.fillFromJSONObject(descriptionObject);
+  }
+
+  NamedCurves(
+    JSONObject descriptionObject,
+    Vec2D translation,
+    Vec2D scale
+  ) {
+    this.fillFromJSONObject(
+      descriptionObject,
+      translation,
+      scale
+    );
+  }
+
   NamedCurves(String... curveNames) {
     // Print if not all curveNames are unique
     String[] uniqueCurveNames = Arrays.stream(curveNames).distinct().toArray(String[]::new);
@@ -11,12 +29,28 @@ class NamedCurves {
     }
 
     for (String curveName: curveNames) {
-      this.createCurve(curveName);
+      this.addEmptyCurve(curveName);
     }
   }
 
   private boolean has(String curveName) {
     return this.curves.containsKey(curveName);
+  }
+
+  private void addEmptyCurve(String curveName) {
+    this.addCurve(curveName, new Curve());
+  }
+
+  /**
+   * Add an instantiated curve to the curves.
+   * Overwrite existing curve in case of name collision.
+   */
+  private void addCurve(String curveName, Curve curve) {
+    if (this.has(curveName)) {
+      this.curves.get(curveName).clear();
+      this.curves.remove(curveName);
+    }
+    this.curves.put(curveName, curve);
   }
 
   boolean isSelected(String curveName) {
@@ -26,13 +60,19 @@ class NamedCurves {
     return false;
   }
 
-  private void createCurve(String curveName) {
-    this.curves.put(curveName, new Curve());
+  void clear() { this.reset(); }
+
+  void reset() {
+    for (Curve curve: this.curves.values()) {
+      curve.clear();
+    }
+    this.curves.clear();
   }
 
   boolean hasSelectedCurve() {
     return this.selectedCurve != null;
   }
+
 
   void selectCurve(String curveName) {
     if (this.has(curveName)) {
@@ -69,6 +109,16 @@ class NamedCurves {
     }
   }
 
+  void resampleAllCurves(int resampleNewLen, boolean regularResample) {
+    for (Curve curve: this.curves.values()) {
+      if (regularResample) {
+        curve.resampleRegular(resampleNewLen);
+      } else {
+        curve.resample(resampleNewLen);
+      }
+    }
+  }
+
   void resampleSelectedCurve(int resampleNewLen, boolean regularResample) {
     if (this.hasSelectedCurve()) {
       if (regularResample) {
@@ -86,12 +136,45 @@ class NamedCurves {
   }
 
   JSONObject toJSONObject() {
+    return this.toJSONObject(new Vec2D(0, 0), new Vec2D(1, 1));
+  }
+
+  JSONObject toJSONObject(
+    Vec2D translation,
+    Vec2D scale
+  ) {
     JSONObject curveObject = new JSONObject();
+    JSONArray namesArray = new JSONArray();
+    JSONObject curvesDescriptionObject = new JSONObject();
+
     for (Map.Entry<String, Curve> entry : this.curves.entrySet()) {
       String name = entry.getKey();
       Curve curve = entry.getValue();
-      curveObject.setJSONArray(name, curve.toJSONArray());
+      namesArray.append(name);
+      curveObject.setJSONArray(name, curve.toJSONArray(translation, scale));
     }
-    return curveObject;
+
+    curvesDescriptionObject.setJSONArray("names", namesArray);
+    curvesDescriptionObject.setJSONObject("curves", curveObject);
+    return curvesDescriptionObject;
+  }
+
+  // Cant be static, use constructor instead, idem with Curve
+  private void fillFromJSONObject(JSONObject descriptionObject) {
+    this.fillFromJSONObject(descriptionObject, new Vec2D(0, 0), new Vec2D(1, 1));
+  }
+
+  private void fillFromJSONObject(
+    JSONObject descriptionObject,
+    Vec2D translation,
+    Vec2D scale
+  ) {
+    JSONObject curveObject = descriptionObject.getJSONObject("curves");
+    JSONArray namesArray = descriptionObject.getJSONArray("names");
+    for (int i = 0; i < namesArray.size(); i++) {
+      String name = namesArray.getString(i);
+      JSONArray curveDescription = curveObject.getJSONArray(name);
+      this.addCurve(name, new Curve(curveDescription, translation, scale));
+    }
   }
 }

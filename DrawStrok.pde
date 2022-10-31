@@ -4,23 +4,83 @@ import processing.svg.*;
 
 boolean RESAMPLE = true;
 int NUMBER_OF_POINTS_FINAL = 20;
+int RESAMPLE_NEW_LEN = NUMBER_OF_POINTS_FINAL;
+boolean RESAMPLE_REGULAR = true;
+
+boolean SECONDARY_MONITOR = false;
+int[] CANVAS_SIZE = new int[]{500, 500};
+int[] REAL_CANVAS_SIZE = new int[]{1000, 1000};
+int[] DISPLAY_WIN_SIZE = new int[]{800, 800};
+int[] DISPLAY_WIN_XY = SECONDARY_MONITOR ? new int[]{600, -2000} : new int[]{50, 50};
+
+SketchMemory memory;
 
 void setup() {
   pixelDensity(2);
-  new DrawWindow(this.sketchPath(""));
+  new DrawWindow();
+  memory = new SketchMemory(this.sketchPath(""));
   this.surface.setVisible(false);
 }
 
 void draw() {noLoop();}
 
+class SketchMemory {
+  String path;
+  String variablesPath =  "data/variables.json";
+  String saveCurvesPath =  "data/curves/";
+  String loadCurvesPath =  "data/curves.json";
+
+  SketchMemory(
+    String path
+  ) {
+    this.path = path;
+  }
+
+  void loadVariables() {
+    JSONObject variables = loadJSONObject(this.path + this.variablesPath);
+    this.deserializeVariables(variables);
+  }
+
+  NamedCurves loadCurves(Vec2D translation, Vec2D scale) {
+    JSONObject lastSaved = loadJSONObject(this.loadCurvesPath);
+    String lastCurvePath = lastSaved.getString("path");
+    JSONObject savedCurves = loadJSONObject(this.path + lastCurvePath);
+    if (savedCurves != null) {
+      return new NamedCurves(savedCurves, translation, scale);
+    }
+    return null;
+  }
+
+  void saveCurves(NamedCurves curves) {
+    this.saveCurves(curves, new Vec2D(0, 0), new Vec2D(1, 1));
+  }
+
+  void saveCurves(NamedCurves curves, Vec2D translation, Vec2D scale) {
+    JSONObject curveObject = curves.toJSONObject(translation, scale);
+
+    String date = "" + year() + String.format("%02d", month()) + String.format("%02d", day());
+    String time = String.format("%02d", hour()) + ":" + String.format("%02d", minute()) + ":" + String.format("%02d", second());
+    String fileName = date + "T" + time + ".json";
+    String filePath = this.saveCurvesPath + fileName;
+
+    saveJSONObject(curveObject, this.path + filePath);
+
+    JSONObject lastSaved = new JSONObject();
+    lastSaved.setString("path", filePath);
+    saveJSONObject(lastSaved, this.loadCurvesPath);
+
+    print("saved curves");
+  }
+
+  void deserializeVariables(JSONObject variables) {
+    RESAMPLE = variables.getBoolean("resample");
+    RESAMPLE_REGULAR = variables.getBoolean("resampleRegular");
+    RESAMPLE_NEW_LEN = variables.getInt("resampleLen");
+  }
+}
+
 class DrawWindow extends PApplet {
-  boolean SECONDARY_MONITOR = false;
-  int[] CANVAS_SIZE = new int[]{500, 500};
-  int[] REAL_CANVAS_SIZE = new int[]{1000, 1000};
-  int[] DISPLAY_WIN_SIZE = new int[]{1000, 1000};
-  int[] DISPLAY_WIN_XY = SECONDARY_MONITOR ? new int[]{600, -2000} : new int[]{50, 50};
   color WINDOW_BACKROUNG_COLOR = 0xffffffff;
-  color MOUSE_STROKE_COLOR = 0xff000000;
   float DISPLAY_WINDOW_LINEAR_DENSITY = 1.0 / 10.0; // 1 point every N pixels
   float xRatio = float(REAL_CANVAS_SIZE[0]) / float(CANVAS_SIZE[0]);
   float yRatio = float(REAL_CANVAS_SIZE[1]) / float(CANVAS_SIZE[1]);
@@ -28,32 +88,31 @@ class DrawWindow extends PApplet {
 
   Vec2D canvasPosition = new Vec2D((DISPLAY_WIN_SIZE[0] - CANVAS_SIZE[0]) / 2, (DISPLAY_WIN_SIZE[1] - CANVAS_SIZE[1]) / 2);
 
-  private String path = "";
-
   NamedCurves curves;
 
   final float LINEAR_DENSITY = DISPLAY_WINDOW_LINEAR_DENSITY;
-  int RESAMPLE_NEW_LEN = NUMBER_OF_POINTS_FINAL;
-  boolean RESAMPLE_REGULAR = true;
 
-  DrawWindow(String path) {
+  DrawWindow() {
     super();
     PApplet.runSketch(new String[]{this.getClass().getName()}, this);
-    this.path = path;
   }
 
   void settings () {
-    size(DISPLAY_WIN_SIZE[0], DISPLAY_WIN_SIZE[1]);
+    this.size(DISPLAY_WIN_SIZE[0], DISPLAY_WIN_SIZE[1]);
   }
 
   void setup() {
-    smooth();
-    this.surface.setLocation(DISPLAY_WIN_XY[0], DISPLAY_WIN_XY[1]);
-    this.curves = new NamedCurves(
-      "headCurve",
-      "tailCurve"
-    );
+    this.smooth();
+    this.loadEverything();
+    if (this.curves == null) {
+      this.curves = new NamedCurves(
+        "headCurve",
+        "tailCurve"
+      );
+    }
     this.curves.selectCurve("headCurve");
+    this.applyResampleToAllCurves();
+    this.surface.setLocation(DISPLAY_WIN_XY[0], DISPLAY_WIN_XY[1]);
   }
 
   void draw() {
@@ -65,6 +124,17 @@ class DrawWindow extends PApplet {
       this.text("\"" + this.curves.selectedCurve + "\" selected", 20, 30);
       this.pop();
     }
+    this.push();
+    this.noFill();
+    this.stroke(0);
+    this.strokeWeight(1);
+    this.rect(
+      this.canvasPosition.x,
+      this.canvasPosition.y,
+      this.width - (2 * this.canvasPosition.x),
+      this.height - (2 * this.canvasPosition.y)
+    );
+    this.pop();
     this.curves.draw(this, color(0));
   }
 
@@ -82,9 +152,7 @@ class DrawWindow extends PApplet {
   }
 
   void mouseReleased() {
-    if (RESAMPLE) {
-      this.curves.resampleSelectedCurve(this.RESAMPLE_NEW_LEN, RESAMPLE_REGULAR);
-    }
+    this.applyResampleToSelectedCurve();
   }
 
   void toggleCurve(String curveName) {
@@ -95,12 +163,49 @@ class DrawWindow extends PApplet {
     }
   }
 
+  void loadEverything() {
+    memory.loadVariables();
+    NamedCurves loadedCurves = memory.loadCurves(
+      this.canvasPosition,
+      new Vec2D(this.xRatio, this.yRatio)
+    );
+    if (loadedCurves != null) {
+      if (this.curves != null) {
+        this.curves.clear();
+      }
+      this.curves = loadedCurves;
+    }
+  }
+
+  void applyResampleToAllCurves() {
+    if (RESAMPLE) {
+      this.curves.resampleAllCurves(RESAMPLE_NEW_LEN, RESAMPLE_REGULAR);
+    }
+  }
+
+  void applyResampleToSelectedCurve() {
+    if (RESAMPLE) {
+      this.curves.resampleSelectedCurve(RESAMPLE_NEW_LEN, RESAMPLE_REGULAR);
+    }
+  }
+
   void keyPressed() {
     if (key == 't') {
       this.toggleCurve("tailCurve");
     }
     if (key == 'h') {
       this.toggleCurve("headCurve");
+    }
+    if (key == 'l') {
+      this.loadEverything();
+      this.applyResampleToAllCurves();
+    }
+    if (key == 's') {
+      memory.saveCurves(
+        this.curves,
+        this.canvasPosition.invert(),
+        new Vec2D(1 / this.xRatio, 1 / this.yRatio)
+      );
     }
   }
 }
@@ -251,19 +356,6 @@ class DrawWindow extends PApplet {
 //     return values;
 //   }
 
-//   void saveCurvesToJSON(Vec2D[][] curves) {
-//     JSONObject curveObject = new JSONObject();
-
-//     curveObject.setJSONArray("headsCurve", curveToJSONArray(curves[0]));
-//     curveObject.setJSONArray("tailsCurve", curveToJSONArray(curves[1]));
-
-//     String date = "" + year() + String.format("%02d", month()) + String.format("%02d", day());
-//     String time = String.format("%02d", hour()) + ":" + String.format("%02d", minute()) + ":" + String.format("%02d", second());
-//     String fileName = date + "T" + time + ".json";
-
-//     saveJSONObject(curveObject, path + "data/curves/" + fileName);
-//     print("saved");
-//   }
 
 //   // Event methods
 
@@ -305,9 +397,9 @@ class DrawWindow extends PApplet {
 //   Vec2D[] applyResample(Vec2D[] curve) {
 //     if (RESAMPLE) {
 //       if (RESAMPLE_REGULAR) {
-//         return regularResample(curve, this.RESAMPLE_NEW_LEN);
+//         return regularResample(curve, RESAMPLE_NEW_LEN);
 //       } else {
-//         return resample(curve, this.RESAMPLE_NEW_LEN);
+//         return resample(curve, RESAMPLE_NEW_LEN);
 //       }
 //     }
 //     return curve;
