@@ -28,7 +28,7 @@ class SketchMemory {
   String path;
   String variablesPath =  "data/variables.json";
   String saveCurvesPath =  "data/curves/";
-  String loadCurvesPath =  "data/curves.json";
+  String lastSavedFile =  "data/curves/lastSaved.json";
 
   SketchMemory(
     String path
@@ -42,13 +42,20 @@ class SketchMemory {
   }
 
   NamedCurves loadCurves(Vec2D translation, Vec2D scale) {
-    JSONObject lastSaved = loadJSONObject(this.loadCurvesPath);
-    String lastCurvePath = lastSaved.getString("path");
-    JSONObject savedCurves = loadJSONObject(this.path + lastCurvePath);
-    if (savedCurves != null) {
-      return new NamedCurves(savedCurves, translation, scale);
+    JSONObject lastSaved = loadJSONObject(this.lastSavedFile);
+    println(lastSaved);
+    if (lastSaved == null) {
+      return null;
     }
-    return null;
+    String lastCurvePath = lastSaved.getString("path");
+    if (lastCurvePath == null) {
+      return null;
+    }
+    JSONObject savedCurves = loadJSONObject(this.path + lastCurvePath);
+    if (savedCurves == null) {
+      return null;
+    }
+    return new NamedCurves(savedCurves, translation, scale);
   }
 
   void saveCurves(NamedCurves curves) {
@@ -67,7 +74,7 @@ class SketchMemory {
 
     JSONObject lastSaved = new JSONObject();
     lastSaved.setString("path", filePath);
-    saveJSONObject(lastSaved, this.loadCurvesPath);
+    saveJSONObject(lastSaved, this.lastSavedFile);
 
     print("saved curves");
   }
@@ -103,15 +110,7 @@ class DrawWindow extends PApplet {
 
   void setup() {
     this.smooth();
-    this.loadEverything();
-    if (this.curves == null) {
-      this.curves = new NamedCurves(
-        "headCurve",
-        "tailCurve"
-      );
-    }
-    this.curves.selectCurve("headCurve");
-    this.applyResampleToAllCurves();
+    this.init();
     this.surface.setLocation(DISPLAY_WIN_XY[0], DISPLAY_WIN_XY[1]);
   }
 
@@ -163,18 +162,29 @@ class DrawWindow extends PApplet {
     }
   }
 
-  void loadEverything() {
+  void init() {
     memory.loadVariables();
+    String curveToSelect = "headCurve";
     NamedCurves loadedCurves = memory.loadCurves(
       this.canvasPosition,
       new Vec2D(this.xRatio, this.yRatio)
     );
     if (loadedCurves != null) {
       if (this.curves != null) {
+        if (this.curves.hasSelectedCurve()) {
+          curveToSelect = this.curves.selectedCurve;
+        }
         this.curves.clear();
       }
       this.curves = loadedCurves;
+    } else {
+      this.curves = new NamedCurves(
+        "headCurve",
+        "tailCurve"
+      );
     }
+    this.curves.selectCurve(curveToSelect);
+    this.applyResampleToAllCurves();
   }
 
   void applyResampleToAllCurves() {
@@ -197,13 +207,12 @@ class DrawWindow extends PApplet {
       this.toggleCurve("headCurve");
     }
     if (key == 'l') {
-      this.loadEverything();
-      this.applyResampleToAllCurves();
+      this.init();
     }
     if (key == 's') {
       memory.saveCurves(
         this.curves,
-        this.canvasPosition.invert(),
+        this.canvasPosition.copy().invert(),
         new Vec2D(1 / this.xRatio, 1 / this.yRatio)
       );
     }

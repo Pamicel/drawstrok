@@ -1,8 +1,8 @@
 interface Resampler {
   static Vec2D[] curveToArray(ArrayList<Vec2D> curve) {
-      int curveLen = curve.size();
-      Vec2D[] arrayCurve = new Vec2D[curveLen];
-      return curve.toArray(arrayCurve);
+    int curveLen = curve.size();
+    Vec2D[] arrayCurve = new Vec2D[curveLen];
+    return curve.toArray(arrayCurve);
   }
 
   static ArrayList<Vec2D> densityResample(ArrayList<Vec2D> curve, float linearDensity) {
@@ -20,6 +20,9 @@ interface Resampler {
   */
   static ArrayList<Vec2D> regularResample (ArrayList<Vec2D> curve, int newLen) {
     int currentLen = curve.size();
+    if (currentLen == 0) {
+      return curve;
+    }
     float maxDist = 0;
     float minDist = 0;
 
@@ -76,6 +79,9 @@ interface Resampler {
       return new ArrayList<Vec2D>();
     }
     int currentLen = curve.size();
+    if (currentLen == 0) {
+      return curve;
+    }
     // Ratio of current num of segments and desired num of segments
     float ratio = (float)(currentLen - 1) / (float)(newLen - 1);
     Vec2D[] newCurve = new Vec2D[newLen];
