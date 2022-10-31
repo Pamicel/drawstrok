@@ -24,6 +24,89 @@ void setup() {
 
 void draw() {noLoop();}
 
+class Strok {
+  Curve headCurve;
+  Curve tailCurve;
+  boolean hidden = false;
+
+  Strok() {}
+
+  Strok(Curve headCurve, Curve tailCurve) {
+    this.setCurves(headCurve, tailCurve);
+  }
+
+  private void equalise(
+  ) {
+    if (this.isComplete()) {
+      this.resampleToSmallest();
+    }
+  }
+
+  private boolean isComplete() {
+    return (
+      this.headCurve != null &&
+      this.tailCurve != null &&
+      !this.headCurve.isEmpty() &&
+      !this.tailCurve.isEmpty()
+    );
+  }
+
+  private void resampleToSmallest() {
+    if (this.isComplete()) {
+      // If the curves don't have the same length
+      // Resample to the smallest
+      if (tailCurve.isLongerThan(headCurve)) {
+        this.tailCurve.equaliseWith(headCurve);
+      } else if (headCurve.isLongerThan(tailCurve)) {
+        this.headCurve.equaliseWith(tailCurve);
+      }
+    }
+  }
+
+  private void drawConnections(PApplet window, color col) {
+    window.push();
+    window.stroke(col);
+    window.strokeWeight(1);
+    ArrayList<Vec2D> headFinalCurve = this.headCurve.getMostTransformedCurve();
+    ArrayList<Vec2D> tailFinalCurve = this.tailCurve.getMostTransformedCurve();
+    int headFinalCurveSize = headFinalCurve.size();
+    int tailFinalCurveSize = tailFinalCurve.size();
+    for (int i = 0; i < min(headFinalCurveSize, tailFinalCurveSize); i++) {
+      Vec2D headPos = headFinalCurve.get(i);
+      Vec2D tailPos = tailFinalCurve.get(i);
+      window.line(headPos.x, headPos.y, tailPos.x, tailPos.y);
+    }
+    window.pop();
+  }
+
+  void setCurves(Curve headCurve, Curve tailCurve) {
+    if (headCurve != null) {
+      if (this.headCurve != null) { this.headCurve.clear(); }
+      this.headCurve = headCurve.copy();
+    }
+    if (tailCurve != null) {
+      if (this.tailCurve != null) { this.tailCurve.clear(); }
+      this.tailCurve = tailCurve.copy();
+    }
+    this.equalise();
+  }
+
+  void hide() {
+    this.hidden = true;
+  }
+  void show() {
+    this.hidden = false;
+  }
+
+  void draw(PApplet window, color col) {
+    if (this.isComplete() && !this.hidden) {
+      this.headCurve.draw(window, col);
+      this.tailCurve.draw(window, col);
+      this.drawConnections(window, col);
+    }
+  }
+}
+
 class SketchMemory {
   String path;
   String variablesPath =  "data/variables.json";
@@ -96,6 +179,7 @@ class DrawWindow extends PApplet {
   Vec2D canvasPosition = new Vec2D((DISPLAY_WIN_SIZE[0] - CANVAS_SIZE[0]) / 2, (DISPLAY_WIN_SIZE[1] - CANVAS_SIZE[1]) / 2);
 
   NamedCurves curves;
+  Strok strok = new Strok();
 
   final float LINEAR_DENSITY = DISPLAY_WINDOW_LINEAR_DENSITY;
 
@@ -116,13 +200,22 @@ class DrawWindow extends PApplet {
 
   void draw() {
     this.background(WINDOW_BACKROUNG_COLOR);
+    //
+    this.push();
+    this.fill(0);
+    this.textSize(20);
     if (this.curves.hasSelectedCurve()) {
-      this.push();
-      this.fill(0);
-      this.textSize(20);
-      this.text("\"" + this.curves.selectedCurve + "\" selected", 20, 30);
-      this.pop();
+      this.text("Curve \"" + this.curves.selectedCurve + "\"", 20, 30);
+    } else {
+      this.text("Use H or T to select and draw a curve", 20, 30);
     }
+    if (this.strok.hidden) {
+      this.text("Use Y to show Strok", 20, 60);
+    } else {
+      this.text("Use Y to hide Strok", 20, 60);
+    }
+    this.pop();
+    //
     this.push();
     this.noFill();
     this.stroke(0);
@@ -135,6 +228,7 @@ class DrawWindow extends PApplet {
     );
     this.pop();
     this.curves.draw(this, color(0));
+    this.strok.draw(this, color(255, 0, 0));
   }
 
   // Event methods
@@ -152,6 +246,10 @@ class DrawWindow extends PApplet {
 
   void mouseReleased() {
     this.applyResampleToSelectedCurve();
+    this.strok.setCurves(
+      this.curves.get("headCurve"),
+      this.curves.get("tailCurve")
+    );
   }
 
   void toggleCurve(String curveName) {
@@ -159,6 +257,14 @@ class DrawWindow extends PApplet {
       this.curves.unSelectCurve(curveName);
     } else {
       this.curves.selectCurve(curveName);
+    }
+  }
+
+  void toggleStrok() {
+    if (this.strok.hidden) {
+      this.strok.show();
+    } else {
+      this.strok.hide();
     }
   }
 
@@ -185,6 +291,10 @@ class DrawWindow extends PApplet {
     }
     this.curves.selectCurve(curveToSelect);
     this.applyResampleToAllCurves();
+    this.strok.setCurves(
+      this.curves.get("headCurve"),
+      this.curves.get("tailCurve")
+    );
   }
 
   void applyResampleToAllCurves() {
@@ -205,6 +315,9 @@ class DrawWindow extends PApplet {
     }
     if (key == 'h') {
       this.toggleCurve("headCurve");
+    }
+    if (key == 'y') {
+      this.toggleStrok();
     }
     if (key == 'l') {
       this.init();

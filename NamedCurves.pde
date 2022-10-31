@@ -53,6 +53,13 @@ class NamedCurves {
     this.curves.put(curveName, curve);
   }
 
+  Curve get(String curveName) {
+    if (this.has(curveName)) {
+      return this.curves.get(curveName);
+    }
+    return null;
+  }
+
   boolean isSelected(String curveName) {
     if (this.has(curveName)) {
       return this.curves.get(curveName).isSelected();
@@ -72,7 +79,6 @@ class NamedCurves {
   boolean hasSelectedCurve() {
     return this.selectedCurve != null;
   }
-
 
   void selectCurve(String curveName) {
     if (this.has(curveName)) {

@@ -13,6 +13,15 @@ class Curve {
     this.fillFromJSONArray(curveDescription, translation, scale);
   }
 
+  Curve copy() {
+    Curve newCurve = new Curve();
+    newCurve.rawCurve = new ArrayList<Vec2D>(this.rawCurve);
+    if (this.resampledCurve != null) {
+      newCurve.resampledCurve = new ArrayList<Vec2D>(this.resampledCurve);
+    }
+    return newCurve;
+  }
+
   private boolean isResampled() {
     return this.resampledCurve != null;
   }
@@ -28,6 +37,26 @@ class Curve {
       float y = (point.getFloat("y") * scale.y) + translation.y;
       this.addPoint(new Vec2D(x, y));
     }
+  }
+
+  /**
+   * The "most transformed curve" is either resampled curve (resampledCurve)
+   * if it exists, or it is the drawn curve (rawCurve).
+   */
+  ArrayList<Vec2D> getMostTransformedCurve() {
+    return this.isResampled() ? this.resampledCurve : this.rawCurve;
+  }
+
+  boolean isLongerThan(Curve otherCurve) {
+    return this.getMostTransformedCurve().size() > otherCurve.getMostTransformedCurve().size();
+  }
+
+  boolean isEmpty() {
+    return this.rawCurve == null || this.rawCurve.size() == 0;
+  }
+
+  void equaliseWith(Curve otherCurve) {
+    this.resample(otherCurve.getMostTransformedCurve().size());
   }
 
   void select() {
