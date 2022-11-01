@@ -89,7 +89,11 @@ class DrawWindow extends PApplet {
   // Event methods
 
   void mouseDragged() {
-    this.curves.addPointToSelectedCurve(new Vec2D(mouseX, mouseY));
+    if (this.curves.hasSelectedCurve()) {
+      this.curves.addPointToSelectedCurve(new Vec2D(mouseX, mouseY));
+    } else {
+      this.curves.translate(new Vec2D(mouseX - pmouseX, mouseY - pmouseY));
+    }
   }
 
   void mousePressed() {
@@ -128,7 +132,7 @@ class DrawWindow extends PApplet {
     String curveToSelect = null;
     NamedCurves loadedCurves = memory.loadCurves(
       this.canvasPosition,
-      new Vec2D(this.xRatio, this.yRatio)
+      new Vec2D(1 / this.xRatio, 1 / this.yRatio)
     );
     if (loadedCurves != null) {
       if (this.curves != null) {
@@ -170,9 +174,11 @@ class DrawWindow extends PApplet {
   void keyPressed() {
     if (key == 't') {
       this.toggleCurve("tailCurve");
+      println("selected tailCurve");
     }
     if (key == 'h') {
       this.toggleCurve("headCurve");
+      println("selected headCurve");
     }
     if (key == 'y') {
       this.toggleStrok();
@@ -180,11 +186,16 @@ class DrawWindow extends PApplet {
     if (key == 'l') {
       this.init();
     }
+    if (key == 'e') {
+      this.curves.clearAllCurves();
+      this.strok.clear();
+      println("erased");
+    }
     if (key == 's') {
       memory.saveCurves(
         this.curves,
         this.canvasPosition.copy().invert(),
-        new Vec2D(1 / this.xRatio, 1 / this.yRatio)
+        new Vec2D(this.xRatio, this.yRatio)
       );
     }
   }

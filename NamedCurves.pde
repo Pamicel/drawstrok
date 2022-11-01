@@ -69,10 +69,16 @@ class NamedCurves {
 
   void clear() { this.reset(); }
 
-  void reset() {
+  void clearAllCurves() {
     for (Curve curve: this.curves.values()) {
       curve.clear();
     }
+    this.selectedCurve = null;
+  }
+
+  void reset() {
+    this.clearAllCurves();
+    // Clear the curves Arraylist
     this.curves.clear();
   }
 
@@ -132,6 +138,12 @@ class NamedCurves {
       } else {
         this.curves.get(this.selectedCurve).resample(resampleNewLen);
       }
+    }
+  }
+
+  void translate(Vec2D translation) {
+    for (Curve curve: this.curves.values()) {
+      curve.translate(translation);
     }
   }
 

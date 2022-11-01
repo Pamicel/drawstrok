@@ -18,7 +18,6 @@ class SketchMemory {
 
   NamedCurves loadCurves(Vec2D translation, Vec2D scale) {
     JSONObject lastSaved = loadJSONObject(this.lastSavedFile);
-    println(lastSaved);
     if (lastSaved == null) {
       return null;
     }

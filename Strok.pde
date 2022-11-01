@@ -3,17 +3,36 @@ class Strok {
   Curve tailCurve;
   boolean hidden = false;
 
+  private ArrayList<Vec2D> headFinalCurve;
+  private ArrayList<Vec2D> tailFinalCurve;
+  private int headFinalCurveSize = 0;
+  private int tailFinalCurveSize = 0;
+  private int nominalSize = 0;
+
   Strok() {}
 
   Strok(Curve headCurve, Curve tailCurve) {
     this.setCurves(headCurve, tailCurve);
   }
 
+  void clear() {
+    if (this.headCurve != null) {
+      this.headCurve.clear();
+    }
+    if (this.tailCurve != null) {
+      this.tailCurve.clear();
+    }
+    this.hidden = false;
+    this.headFinalCurve = null;
+    this.tailFinalCurve = null;
+    this.headFinalCurveSize = 0;
+    this.tailFinalCurveSize = 0;
+    this.nominalSize = 0;
+  }
+
   private void equalise(
   ) {
-    if (this.isComplete()) {
-      this.resampleToSmallest();
-    }
+    this.resampleToSmallest();
   }
 
   private boolean isComplete() {
@@ -34,6 +53,17 @@ class Strok {
       } else if (headCurve.isLongerThan(tailCurve)) {
         this.headCurve.equaliseWith(tailCurve);
       }
+      this.refresh();
+    }
+  }
+
+  private void refresh() {
+    if (this.isComplete()) {
+      this.headFinalCurve = this.headCurve.getMostTransformedCurve();
+      this.tailFinalCurve = this.tailCurve.getMostTransformedCurve();
+      this.headFinalCurveSize = headFinalCurve.size();
+      this.tailFinalCurveSize = tailFinalCurve.size();
+      this.nominalSize = min(headFinalCurveSize, tailFinalCurveSize);
     }
   }
 
@@ -41,11 +71,7 @@ class Strok {
     window.push();
     window.stroke(col);
     window.strokeWeight(1);
-    ArrayList<Vec2D> headFinalCurve = this.headCurve.getMostTransformedCurve();
-    ArrayList<Vec2D> tailFinalCurve = this.tailCurve.getMostTransformedCurve();
-    int headFinalCurveSize = headFinalCurve.size();
-    int tailFinalCurveSize = tailFinalCurve.size();
-    for (int i = 0; i < min(headFinalCurveSize, tailFinalCurveSize); i++) {
+    for (int i = 0; i < this.nominalSize; i++) {
       Vec2D headPos = headFinalCurve.get(i);
       Vec2D tailPos = tailFinalCurve.get(i);
       window.line(headPos.x, headPos.y, tailPos.x, tailPos.y);

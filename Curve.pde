@@ -118,6 +118,19 @@ class Curve {
     this.resampledCurve = Resampler.regularResample(this.rawCurve, resampleNewLen);
   }
 
+  void translate(Vec2D translation) {
+    if (this.rawCurve != null) {
+      for (Vec2D point: this.rawCurve) {
+        point.addSelf(translation);
+      }
+    }
+    if (this.resampledCurve != null) {
+      for (Vec2D point: this.resampledCurve) {
+        point.addSelf(translation);
+      }
+    }
+  }
+
   void draw(PApplet window, color strokeColor) {
     this.draw(window, strokeColor, new Vec2D(0, 0), new Vec2D(1, 1));
   }
