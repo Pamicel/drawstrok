@@ -97,7 +97,7 @@ class NamedCurves {
   }
 
   void unSelectCurve(String curveName) {
-    if (this.has(curveName)) {
+    if (this.has(curveName) && this.hasSelectedCurve()) {
       this.selectedCurve = this.selectedCurve.equals(curveName) ? null : this.selectedCurve;
       this.curves.get(curveName).unSelect();
     }
